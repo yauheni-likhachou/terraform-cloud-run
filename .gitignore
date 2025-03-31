@@ -3,3 +3,6 @@
 
 # Ignore .env files as they are personal
 /.env
+
+.terraform.lock.*
+/.terraform/

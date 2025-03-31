@@ -1,6 +1,7 @@
 variable "project_id" {
-  description = "The GCP Project ID"
+  description = "Project id"
   type        = string
+  default = "sample-flask-app-455114"
 }
 
 variable "region" {

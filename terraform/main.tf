@@ -1,54 +1,57 @@
 provider "google" {
   project = var.project_id
   region  = var.region
+  credentials = file("~/<sample-flask-app-XXXX.json") # currently used ~/sample-flask-app-455114-56d77f2b75f6.json
 }
 
-resource "google_service_account" "cloud_run_sa" {
-  account_id   = "${var.service_name}-sa"
-  display_name = "Cloud Run Service Account for ${var.service_name}"
-}
+#
 
-resource "google_project_iam_binding" "cloud_run_invoker_binding" {
-  project = var.project_id
-  role    = "roles/run.invoker"
-  members = [
-    "allUsers", # Makes the Cloud Run Service public
-  ]
-}
-
-resource "google_cloud_run_service" "service" {
-  name     = var.service_name
+# Deploy the sample application to Cloud Run
+resource "google_cloud_run_service" "app_service" {
+  name     = "sample-cloud-run-app"
   location = var.region
 
+  # Define container details
   template {
     spec {
       containers {
-        image = var.docker_image
+        # Use the public Docker Hub image
+        image = "yalikhach/sample-flask-app:0.1"
 
-        resources {
-          limits = {
-            memory = "512Mi"
-            cpu    = "1"
-          }
+
+        env {
+          name  = "ENV_VAR"
+          value = "Hello, GCP!"
         }
-      }
-    }
-    metadata {
-      annotations = {
-        "autoscaling.knative.dev/maxScale" = "2"
       }
     }
   }
 
+  # Routing traffic rules
   traffic {
     percent         = 100
     latest_revision = true
   }
 
-  depends_on = [google_project_iam_binding.cloud_run_invoker_binding]
+  autogenerate_revision_name = true
 }
 
-output "cloud_run_url" {
-  value       = google_cloud_run_service.service.status[0].url
-  description = "The URL for the deployed Cloud Run service"
+# Allow public access to the Cloud Run service
+resource "google_cloud_run_service_iam_policy" "public_access_policy" {
+  location = google_cloud_run_service.app_service.location
+  service  = google_cloud_run_service.app_service.name
+
+  policy_data = <<EOT
+{
+  "bindings": [
+    {
+      "role": "roles/run.invoker",
+      "members": [
+        "allUsers"
+      ]
+    }
+  ]
+}
+EOT
+  depends_on = [google_cloud_run_service.app_service]
 }
